@@ -191,6 +191,12 @@ fieldset{border:0;padding:0;margin:0}
 .plan .price{font:800 30px/1 var(--display);letter-spacing:-.02em}
 .plan ul{margin:0;padding-left:18px;font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
 .plan .tag{position:absolute;top:-11px;left:14px}
+.plan .pcinta{margin:-26px -24px 4px;padding:9px 12px;background:var(--y-2);color:var(--y-ink);font-weight:700;font-size:13px;text-align:center;border-radius:26px 26px 0 0}
+.plan .pname{font-size:22px;font-weight:600;text-align:center;margin:6px 0 0}
+.plan .pold{text-decoration:line-through;color:var(--muted);font-size:14px}
+.plan .price small{font-size:14px;font-weight:500;color:var(--muted)}
+.checks li.no{color:var(--muted)}.checks li.no::before{content:"✕";color:#D64545}
+.pdesc{background:#1E8E4E;color:#fff;border-radius:6px;padding:1px 6px;font-size:12px}
 .trialcard{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center}
 .ring{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;font:800 24px var(--display);background:conic-gradient(var(--y-2) var(--p),var(--surface-2) 0);position:relative}
 .ring::after{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--surface)}
@@ -274,12 +280,12 @@ var PERIODOS = [
 ];
 // precio = precio mensual × meses − descuento del período. Links de Mercado Pago por período (opcional).
 var PLANES = [
-  {id:'esencial', nombre:'Esencial', mensual:9900,  usuarios:1, mp:{mensual:'',trimestral:'',anual:''},
-   items:['1 usuario','Clientes ilimitados','Ventas con cálculo de ganancia','Gastos y resultado del mes','Agenda de cumpleaños y recordatorios','Notas importantes']},
-  {id:'pro',      nombre:'Pro',      mensual:15900, usuarios:5, best:true, mp:{mensual:'',trimestral:'',anual:''},
-   items:['Todo lo de Esencial','Hasta 5 usuarios con su propia contraseña','Ideal para equipos de venta','Soporte especializado']}
+  {id:'esencial', nombre:'Esencial (App)', icono:'📱', mensual:15600, usuarios:1, mp:{mensual:'',trimestral:'',anual:''},
+   items:['Soporte especializado','Registro de ventas','Registro de gastos','Registro de inventarios','Módulo de estadísticas','Descarga de comprobantes','Descarga de reportes','Gestión de clientes','Gestión de proveedores','Control de deudas','Uso desde el celular'], no:['No incluye uso desde la computadora','No incluye documento electrónico']},
+  {id:'pro',      nombre:'Pro (App + Web)', icono:'💻', mensual:31200, usuarios:5, best:true, cinta:'Recomendado para emprendedores', mp:{mensual:'',trimestral:'',anual:''},
+   items:['Soporte especializado','Registro de ventas','Registro de gastos','Registro de inventarios','Módulo de estadísticas','Descarga de comprobantes','Descarga de reportes','Gestión de clientes','Gestión de proveedores','Control de deudas','Uso desde el celular','Uso desde la computadora'], no:['No incluye documento electrónico']}
 ];
-function precio(p,per){var raw=p.mensual*per.meses*(1-per.desc/100);return Math.round(raw/100)*100}
+function precio(p,per){return Math.round(p.mensual*per.meses*(1-per.desc/100))}
 
 /* ---------- utilidades ---------- */
 var $=function(s,r){return (r||document).querySelector(s)};
@@ -320,7 +326,7 @@ var KEYS=['clientes','ventas','gastos','inter','opps','recs','notas','cfg'];
 function emptyD(){return {clientes:[],ventas:[],gastos:[],inter:[],opps:[],recs:[],notas:[],cfg:{}}}
 var D=emptyD();
 var ACCS=[],ACC=null,USER='';
-var S={view:'landing',cli:null,cliTab:'datos',q:'',fEstado:'todos',fCat:'todas',mes:hoy().slice(0,7),cajaTab:'ventas',nq:'',nImp:false,sync:'local',per:'anual',precios:false,err:''};
+var S={view:'landing',cli:null,cliTab:'datos',q:'',fEstado:'todos',fCat:'todas',mes:hoy().slice(0,7),cajaTab:'ventas',nq:'',nImp:false,sync:'local',per:'mensual',precios:false,err:''};
 var DB=null,UIDU=null,timers={},LSP='vg-cartera:';
 
 function lsGet(k){try{var v=localStorage.getItem(LSP+k);return v?JSON.parse(v):null}catch(_){return null}}
@@ -630,13 +636,13 @@ var FEATS=[
   ['⭐','Notas importantes','Lo que no te podés olvidar, siempre arriba.']
 ];
 function planesSection(){
-  var per=PERIODOS.find(function(p){return p.id===S.per})||PERIODOS[2];
+  var per=PERIODOS.find(function(p){return p.id===S.per})||PERIODOS[0];
   var detalle=S.precios?'<div class="stack" id="precios" style="gap:14px">'+
-    '<div class="chips" style="justify-content:center">'+PERIODOS.map(function(p){return '<button type="button" class="chip" data-per="'+p.id+'" aria-pressed="'+(S.per===p.id)+'">'+p.nombre+(p.desc?' −'+p.desc+'%':'')+'</button>'}).join('')+'</div>'+
-    '<div class="plans two">'+PLANES.map(function(p){var pr=precio(p,per),mes=Math.round(pr/per.meses);
-      return '<div class="card pcard plan'+(p.best?' best':'')+'">'+(p.best?'<span class="pill y tag">Más elegido</span>':'')+'<span class="eyebrow">Plan</span><h2 style="font-size:28px">'+p.nombre+'</h2>'+
-        '<div><div class="price num">'+money(pr)+'</div><span class="muted" style="font-size:13px">'+per.corto+(per.meses>1?' · '+money(mes)+' por mes':'')+(per.desc?' · ahorrás '+money(p.mensual*per.meses-pr):'')+'</span></div>'+
-        '<ul class="checks">'+p.items.map(function(i){return '<li>'+esc(i)+'</li>'}).join('')+'</ul>'+payBtn(p,per)+'</div>'}).join('')+'</div>'+
+    '<div class="chips" style="justify-content:center">'+PERIODOS.map(function(p){return '<button type="button" class="chip" data-per="'+p.id+'" aria-pressed="'+(S.per===p.id)+'">'+p.nombre+(p.desc?' <b class="pdesc">-'+p.desc+'%</b>':'')+'</button>'}).join('')+'</div>'+
+    '<div class="plans two">'+PLANES.map(function(p){var pr=precio(p,per),mes=Math.round(p.mensual*(1-per.desc/100));
+      return '<div class="card pcard plan'+(p.best?' best':'')+'">'+(p.cinta?'<div class="pcinta">'+esc(p.cinta)+'</div>':'')+'<h2 class="pname">'+p.icono+' '+esc(p.nombre)+'</h2>'+
+        '<div class="center">'+(per.desc?'<div class="pold">'+money(p.mensual)+' /mes</div>':'')+'<div class="price num">'+money(mes)+' <small>/mes</small></div><span class="muted" style="font-size:13px">'+(per.meses>1?'Total a pagar '+per.corto+': '+money(pr):'Se cobra mes a mes')+'</span></div>'+
+        '<ul class="checks">'+p.items.map(function(i){return '<li>'+esc(i)+'</li>'}).join('')+(p.no||[]).map(function(i){return '<li class="no">'+esc(i)+'</li>'}).join('')+'</ul>'+payBtn(p,per)+'</div>'}).join('')+'</div>'+
     (ACC?'<div class="card stack"><h3>¿Ya pagaste?</h3><p class="muted" style="font-size:14px">Escribí el código de activación que te enviamos.</p><form id="f-cod" style="display:flex;gap:8px" novalidate><input class="inp" id="codigo" placeholder="VG-XXXXX-XXXX" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;letter-spacing:.06em"><button class="btn primary" type="submit">Activar</button></form><p class="ferr" id="cod-err"></p></div>':'')+
   '</div>':'';
   return '<section class="stack pub-sec" id="planes" style="gap:18px"><div class="center stack" style="gap:8px"><span class="eyebrow acc">Planes</span><h2 class="h-xl">'+TRIAL_MESES+' meses gratis,<br>después elegís tu plan</h2>'+
@@ -651,9 +657,9 @@ function planesSection(){
 function payBtn(p,per){
   if(!ACC)return '<button class="btn '+(p.best?'primary':'dark')+' block" data-nav="registro">Empezar con 2 meses gratis</button>';
   var link=p.mp&&p.mp[per.id];
-  if(link)return '<a class="btn '+(p.best?'primary':'dark')+' block" href="'+esc(link)+'" target="_blank" rel="noopener">Pagar con Mercado Pago</a>';
+  if(link)return '<a class="btn '+(p.best?'primary':'dark')+' block" href="'+esc(link)+'" target="_blank" rel="noopener">💳 Pagar '+per.nombre.toLowerCase()+'</a>';
   if(CONTACTO_WHATSAPP)return '<a class="btn '+(p.best?'primary':'dark')+' block" href="'+waLink(CONTACTO_WHATSAPP,'Hola, quiero contratar VentiunGo Cartera de Clientes, plan '+p.nombre+' '+per.nombre.toLowerCase()+' ('+money(precio(p,per))+'). Mi usuario es '+USER+'.')+'" target="_blank" rel="noopener">'+IC.wa+'Contratar '+p.nombre+'</a>';
-  return '<button type="button" class="btn '+(p.best?'primary':'dark')+' block" data-elegir="'+p.id+'">Elegir '+p.nombre+'</button>';
+  return '<button type="button" class="btn '+(p.best?'primary':'dark')+' block" data-elegir="'+p.id+'">💳 Pagar '+per.nombre.toLowerCase()+'</button>';
 }
 function vLanding(){
   return '<section class="hero"><div class="stack" style="gap:16px"><span class="eyebrow acc">VentiunGo · Cartera de clientes</span>'+
