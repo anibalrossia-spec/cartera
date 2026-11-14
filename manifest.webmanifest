@@ -1,0 +1,17 @@
+{
+  "name": "VentiunGo · Cartera de clientes",
+  "short_name": "Cartera",
+  "description": "Tus clientes, tus ventas y tu ganancia en el celular.",
+  "lang": "es",
+  "id": "./?app=cartera",
+  "start_url": "./?app=cartera",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FFFDF5",
+  "theme_color": "#FFD43B",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
