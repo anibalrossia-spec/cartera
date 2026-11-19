@@ -268,6 +268,9 @@ body.out main{gap:56px;padding-top:28px;padding-bottom:56px}
 <div id="modalRoot"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 (function(){
 'use strict';
@@ -711,7 +714,7 @@ function vLogin(){
   return '<section class="stack auth" style="gap:16px"><span class="eyebrow acc">Ingresar</span><h1 class="h-xl">Entrá a tu cuenta</h1>'+
     '<form id="f-login" class="card stack" novalidate><div class="field"><label class="lbl" for="l-user">Usuario</label><input class="inp" id="l-user" autocomplete="username" autocapitalize="none" spellcheck="false"></div>'+
     '<div class="field"><label class="lbl" for="l-pass">Contraseña</label><input class="inp" id="l-pass" type="password" autocomplete="current-password"></div>'+
-    '<p class="ferr">'+esc(S.err)+'</p><button class="btn primary xl block" type="submit">Ingresar</button></form>'+
+    '<p class="ferr">'+esc(S.err)+'</p><button class="btn primary xl block" type="submit">Ingresar</button><button type="button" class="link" data-act="olvide" style="align-self:center;font-size:14px">¿Olvidaste tu contraseña?</button></form>'+
     '<p class="muted" style="font-size:14px">¿Primera vez? <button class="link" style="font-size:14px;color:var(--ink);font-weight:700" data-nav="registro">Creá tu cuenta con '+TRIAL_MESES+' meses gratis</button></p>'+
     (ACCS.length?'':'<p class="help">Tu cuenta y tus datos quedan guardados en este celular o computadora. Desde Ajustes podés copiar un respaldo.</p>')+
     '<div><button class="link" data-nav="acceso">← Volver</button></div></section>'+planesSection();
@@ -728,9 +731,68 @@ function vRegistro(){
       '<p class="ferr">'+esc(S.err)+'</p><button class="btn primary xl block" type="submit">Crear cuenta y empezar gratis</button></form>'+
     '<p class="muted" style="font-size:14px">¿Ya tenés cuenta? <button class="link" style="font-size:14px;color:var(--ink);font-weight:700" data-nav="login">Ingresá</button></p></section>'+planesSection();
 }
+
+/* ---------- recuperar contraseña con código de VentiunGo ----------
+   Las cuentas de Cartera de clientes viven en el celular de cada cliente. Si se olvida la contraseña,
+   soporte (usuario "ventiungo") genera un código de un solo uso que vence en 24 h; el cliente lo escribe
+   en su celular junto con la contraseña nueva. Solo se guarda el hash del código en la base de VentiunGo. */
+var FB_CFG={apiKey:"AIzaSyDgPs6NIM_utoOnaitB1gk5nnsnKazmKa0",authDomain:"socio-cafe.firebaseapp.com",projectId:"socio-cafe",storageBucket:"socio-cafe.firebasestorage.app",messagingSenderId:"995147367882",appId:"1:995147367882:web:d7116274e65785a633fb33"};
+var SUP_EMAILS=['anibalrossia@gmail.com','soporte@ventiungo.app'],SUP_WA='5493415628884';
+function fbApp(){if(!window.firebase)return null;try{return firebase.apps.find(function(a){return a.name==='vgcc'})||firebase.initializeApp(FB_CFG,'vgcc')}catch(_){return null}}
+function sha256(t){return crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)).then(function(b){return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0')}).join('')})}
+function rstDoc(app,u){return app.firestore().collection('config').doc('ccrst-'+u)}
+function supLogin(p){
+  var app=fbApp();if(!app)return Promise.reject({code:'sin-red'});var au=app.auth();
+  var tryE=function(i){return au.signInWithEmailAndPassword(SUP_EMAILS[i],p).catch(function(e){if(i+1<SUP_EMAILS.length&&/invalid-credential|user-not-found|wrong-password|invalid-login|invalid-email/.test((e&&e.code)||''))return tryE(i+1);throw e})};
+  return tryE(0).then(function(){return app});
+}
+function mSoporte(app){
+  openModal('Soporte VentiunGo','<p class="muted">Generá un código para que un cliente cree una contraseña nueva en su celular, sin saber la anterior. Vence en 24 horas.</p>'+
+    '<div class="field"><label class="lbl" for="sp-u">Usuario del cliente</label><input class="inp" id="sp-u" autocapitalize="none" autocomplete="off" spellcheck="false"></div>'+
+    '<div id="sp-res"></div><div class="actions"><button type="button" class="btn" data-spout>Cerrar sesión de soporte</button><button type="button" class="btn primary" data-spgen>Generar código</button></div>',function(){return ' '},{noSubmit:true,after:function(f){
+      var er=$('#merr');
+      $('[data-spout]',f).onclick=function(){app.auth().signOut().catch(function(){});closeModal();toast('Sesión de soporte cerrada')};
+      $('[data-spgen]',f).onclick=function(){
+        var u=$('#sp-u').value.trim().toLowerCase();if(!/^[a-z0-9._-]{3,30}$/.test(u)){er.textContent='Escribí el usuario del cliente (3 a 30 letras o números).';return}
+        er.textContent='';var code=String(100000+(crypto.getRandomValues(new Uint32Array(1))[0]%900000));
+        sha256(code+':'+u).then(function(h){return rstDoc(app,u).set({h:h,exp:Date.now()+864e5})}).then(function(){
+          var msg='Hola, este es tu código de VentiunGo para crear una contraseña nueva en Cartera de clientes: '+code+'\nEntrá a ventiungo.ar/cartera → Ingresar → ¿Olvidaste tu contraseña?, escribí tu usuario ('+u+'), el código y tu contraseña nueva. Vence en 24 horas.';
+          $('#sp-res').innerHTML='<div class="card stack" style="text-align:center"><span class="eyebrow">Código para '+esc(u)+'</span><b style="font:800 34px var(--display);letter-spacing:.2em">'+code+'</b><p class="muted" style="font-size:13px">Pasáselo al cliente. Lo escribe en su celular en <b>Ingresar → ¿Olvidaste tu contraseña?</b></p><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent(msg)+'">'+IC.wa+'Enviar por WhatsApp</a></div>';
+        },function(e){er.textContent=/permission/.test((e&&e.code)||'')?'Esta cuenta no tiene permiso de soporte.':'No se pudo generar. Revisá la conexión.'});
+      };
+    }});
+}
+function mOlvide(){
+  var pre=(($('#l-user')||{}).value||'').trim().toLowerCase();
+  openModal('¿Olvidaste tu contraseña?','<p class="muted">Pedile a VentiunGo un código y creá una contraseña nueva. Tus clientes y ventas no se tocan.</p>'+
+    '<div class="field"><label class="lbl" for="ol-u">Tu usuario</label><input class="inp" id="ol-u" autocapitalize="none" autocomplete="username" spellcheck="false" value="'+esc(pre)+'"></div>'+
+    '<div><button type="button" class="btn" data-olwa>'+IC.wa+'Pedir el código por WhatsApp</button></div>'+
+    '<div class="field"><label class="lbl" for="ol-c">Código de VentiunGo</label><input class="inp" id="ol-c" inputmode="numeric" autocomplete="one-time-code"></div>'+
+    '<div class="fgrid r"><div class="field"><label class="lbl" for="ol-1">Contraseña nueva</label><input class="inp" id="ol-1" type="password" autocomplete="new-password"><p class="help">Al menos 6 caracteres.</p></div><div class="field"><label class="lbl" for="ol-2">Repetir</label><input class="inp" id="ol-2" type="password" autocomplete="new-password"></div></div>'+
+    '<div class="actions"><button type="button" class="btn primary" data-olsave>Guardar contraseña nueva</button></div>',function(){return ' '},{noSubmit:true,noFocus:true,after:function(f){
+      var er=$('#merr'),btn=$('[data-olsave]',f);
+      $('[data-olwa]',f).onclick=function(){var u=$('#ol-u').value.trim().toLowerCase();window.open('https://wa.me/'+SUP_WA+'?text='+encodeURIComponent('Hola VentiunGo, olvidé mi contraseña de Cartera de clientes. Mi usuario es: '+(u||'(no me acuerdo)')+'. ¿Me pasan un código?'),'_blank')};
+      btn.onclick=function(){
+        var u=$('#ol-u').value.trim().toLowerCase(),c=$('#ol-c').value.replace(/\D/g,''),a=$('#ol-1').value,b2=$('#ol-2').value;
+        if(!u){er.textContent='Escribí tu usuario.';return}
+        var hit=findUser(u);if(!hit){er.textContent='Ese usuario no está guardado en este celular. Entrá desde el celular o la computadora donde creaste la cuenta.';return}
+        if(c.length!==6){er.textContent='Escribí el código de 6 números que te pasó VentiunGo.';return}
+        if(a.length<6){er.textContent='La contraseña nueva tiene que tener al menos 6 caracteres.';return}if(a!==b2){er.textContent='Las contraseñas no coinciden.';return}
+        var app=fbApp();if(!app){er.textContent='Necesitás internet para validar el código.';return}
+        btn.disabled=true;btn.textContent='Verificando…';er.textContent='';
+        var fin=function(m){btn.disabled=false;btn.textContent='Guardar contraseña nueva';er.textContent=m};
+        Promise.all([rstDoc(app,u).get(),sha256(c+':'+u)]).then(function(r){
+          var d=r[0].exists&&r[0].data();
+          if(!d||d.h!==r[1]||!(d.exp>Date.now())||lsGet('rst-usado:'+u)===r[1])return fin('El código no es válido o ya venció. Pedí uno nuevo a VentiunGo.');
+          return hashPass(a,hit.acc.id).then(function(h){hit.e.h=h;saveAccs();lsSet('rst-usado:'+u,r[1]);closeModal();S.view='login';S.err='';render();var lu=$('#l-user');if(lu)lu.value=u;toast('¡Listo! Entrá con tu contraseña nueva')});
+        },function(){fin('No se pudo validar el código. Revisá la conexión y probá de nuevo.')});
+      };
+    }});
+}
 function doLogin(){
   var u=$('#l-user').value.trim().toLowerCase(),p=$('#l-pass').value,fail=function(){S.err='Usuario o contraseña incorrectos.';render();$('#l-user').value=u;var f=$('#l-pass');if(f)f.focus()};
-  if(!u||!p)return fail();var hit=findUser(u);if(!hit)return fail();
+  if(!u||!p)return fail();
+  if(u==='ventiungo'&&!findUser(u)){S.err='';supLogin(p).then(function(app){render();mSoporte(app)},function(e){S.err=/network/.test((e&&e.code)||'')?'Sin conexión. Revisá internet.':'Usuario o contraseña incorrectos.';render();var lu=$('#l-user');if(lu)lu.value=u});return}var hit=findUser(u);if(!hit)return fail();
   hashPass(p,hit.acc.id).then(function(h){if(h!==hit.e.h)return fail();S.err='';startSession(hit.acc,u);toast('Bienvenido a '+hit.acc.negocio)});
 }
 function doRegistro(){
@@ -1013,6 +1075,7 @@ document.addEventListener('click',function(e){
   if(d.starnota){var n=D.notas.find(function(x){return x.id===d.starnota});if(n){n.imp=!n.imp;save('notas');render()}return}
   if(d.delinter){D.inter=D.inter.filter(function(x){return x.id!==d.delinter});save('inter');render();return}
   var a=d.act;
+  if(a==='olvide'){mOlvide();return}
   if(a==='instalar'){instalarApp();return}
   if(a==='tema'){var dk=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',dk?'light':'dark');try{localStorage.setItem(LSP+'tema',dk?'light':'dark')}catch(_){}header();return}
   if(a==='planes'){openPlanes();return}
